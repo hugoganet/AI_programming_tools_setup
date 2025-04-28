@@ -1,43 +1,59 @@
 #!/bin/bash
 
-# -----------------------------------------
-# update_knowledge_base.sh
-# -----------------------------------------
-# This script rebuilds knowledge_base.md by:
-# 1. Adding the update date
-# 2. Adding the project structure
-# 3. Adding a human-readable versions list
-# -----------------------------------------
+# Exit immediately if a command exits with a non-zero status
+set -euo pipefail
 
-set -euo pipefail  # Safe mode: exit on error, treat unset variables as errors, fail on pipeline errors
-
-# Get the root of the project (not AI_programming_tools_setup)
+# Find the root of the repo
 repo_root="$(git rev-parse --show-toplevel)"
 
-# Define paths
+echo "repo_root: $repo_root"
+
+# Paths
+output_file="$repo_root/AI_programming_tools_setup/agents/knowledge_base.md"
+info_file="$repo_root/AI_programming_tools_setup/agents/project_info.md"
 structure_file="$repo_root/AI_programming_tools_setup/agents/project-structure.txt"
-versions_file="$repo_root/AI_programming_tools_setup/agents/versions.jsonc"
-knowledge_base="$repo_root/AI_programming_tools_setup/agents/knowledge_base.md"
+versions_json="$repo_root/AI_programming_tools_setup/agents/versions.json"
+versions_temp_md="$repo_root/AI_programming_tools_setup/agents/versions_temp.md"
 
-# Clean or create knowledge_base.md
-> "$knowledge_base"
+# Create a temp versions.md by parsing the JSONC
+node "$repo_root/AI_programming_tools_setup/agents/parse_versions_to_md.js" "$versions_json" > "$versions_temp_md"
 
-# 1. Append update date
-echo "## Knowledge Base" >> "$knowledge_base"
-echo "" >> "$knowledge_base"
-echo "_Last updated: $(date '+%Y-%m-%d %H:%M:%S')_" >> "$knowledge_base"
-echo "" >> "$knowledge_base"
+# Start fresh
+echo "" > "$output_file"
 
-# 2. Append project structure
-echo "## Project Structure" >> "$knowledge_base"
-echo "" >> "$knowledge_base"
-cat "$structure_file" >> "$knowledge_base"
-echo "" >> "$knowledge_base"
+# 1. Add update date
+echo "# Project Knowledge Base" >> "$output_file"
+echo "" >> "$output_file"
+echo "**Last updated:** $(date '+%Y-%m-%d')" >> "$output_file"
+echo "" >> "$output_file"
+echo "---" >> "$output_file"
+echo "" >> "$output_file"
 
-# 3. Append versions information by calling Node.js script
-echo "## Project Versions" >> "$knowledge_base"
-echo "" >> "$knowledge_base"
-node "$repo_root/AI_programming_tools_setup/agents/parse_versions_to_md.js" "$versions_file" >> "$knowledge_base"
+# 2. Add project_info.md if it exists
+if [ -f "$info_file" ]; then
+    echo "Adding project_info.md..."
+    cat "$info_file" >> "$output_file"
+    echo "" >> "$output_file"
+    echo "---" >> "$output_file"
+    echo "" >> "$output_file"
+else
+    echo "Warning: project_info.md not found, skipping."
+fi
 
-# Done
-echo "✅ knowledge_base.md updated successfully at $knowledge_base"
+# 3. Add versions
+echo "## Dependency Versions" >> "$output_file"
+echo "" >> "$output_file"
+cat "$versions_temp_md" >> "$output_file"
+echo "" >> "$output_file"
+echo "---" >> "$output_file"
+echo "" >> "$output_file"
+
+# 4. Add project structure
+echo "## Project Structure" >> "$output_file"
+echo "" >> "$output_file"
+cat "$structure_file" >> "$output_file"
+
+# Cleanup
+rm "$versions_temp_md"
+
+echo "✅ Knowledge base successfully updated at $output_file"
